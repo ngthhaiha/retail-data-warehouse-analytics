@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35122.118
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{C9674DCB-5085-4A16-B785-4C70DD1589BD}") = "SSIS_RetailDW", "SSIS_RetailDW.dtproj", "{2EF60F8D-4AD6-4FCC-B9F5-6B7A99B14684}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Development|Default = Development|Default
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2EF60F8D-4AD6-4FCC-B9F5-6B7A99B14684}.Development|Default.ActiveCfg = Development
+		{2EF60F8D-4AD6-4FCC-B9F5-6B7A99B14684}.Development|Default.Build.0 = Development
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FE84CA51-4CA9-4650-B6D2-B0D770E123F6}
+	EndGlobalSection
+EndGlobal

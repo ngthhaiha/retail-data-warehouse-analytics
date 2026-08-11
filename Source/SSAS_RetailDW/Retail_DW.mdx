@@ -1,0 +1,251 @@
+﻿-- 1.	Cho biết tổng doanh số bán hàng ở nước Mỹ theo từng quý năm 2023
+SELECT 
+{[DIM DATE].[Quarter Purchases].MEMBERS} ON ROWS,
+[Measures].[Total Amount] ON COLUMNS
+FROM [Retail DW]
+WHERE ([DIM LOCATION].[COUNTRY].&[USA], 
+	   [DIM DATE].[Year Purchases].&[2023]);
+
+
+
+-- 2.Liệt kê sản phẩm có doanh thu từ 2000000 đến 3000000
+SELECT 
+[Measures].[Total Amount] ON COLUMNS,
+{INTERSECT (
+	{FILTER (
+		[DIM PRODUCT].[Product Name].Children,
+		[Measures].[Total Amount] >= 2000000
+	)}, 
+	{FILTER (
+		[DIM PRODUCT].[Product Name].Children,
+		[Measures].[Total Amount] <= 3000000
+		)}
+)} ON ROWS
+FROM [Retail DW];
+
+
+-- 3	Liệt kê số lượng đơn hàng đã bán theo từng năm của từng bang, 
+-- trừ bang New Mexico.
+
+SELECT
+    {[DIM DATE].[Year Purchases].[Year Purchases]} ON COLUMNS,
+    EXCEPT(
+        {[DIM LOCATION].[State].[State]},
+        {[DIM LOCATION].[State].&[New Mexico]&[USA]}
+    ) ON ROWS
+FROM [Retail DW]
+WHERE {[Measures].[FACT SALES Count]};
+
+
+-- 4. 11.4. Với từng quốc gia, liệt kê TOP 10 sản phẩm được khách hàng độ tuổi 18 - 25 
+-- mua nhiều nhất theo thứ tự giảm dần
+WITH 
+SET [Top10Product] AS
+    GENERATE(
+        [DIM LOCATION].[Country].[Country],
+        ORDER(
+            TOPCOUNT(
+                NONEMPTY(
+                    {[DIM LOCATION].[Country].CurrentMember * 
+					[DIM PRODUCT].[Product Name].[Product Name]},
+                    [Measures].[Total Purchases]
+                ),
+                10,
+                [Measures].[Total Purchases]
+            ),
+            [Measures].[Total Purchases],
+            DESC
+        )
+    )
+
+SELECT
+    {[Measures].[Total Purchases]} ON COLUMNS,
+    [Top10Product] ON ROWS
+FROM [Retail DW]
+WHERE ([DIM CUSTOMER].[Age].&[18]:[DIM CUSTOMER].[Age].&[25]);
+
+
+
+-- 5 .	Với mỗi danh mục sản phẩm, liệt kê TOP 3 thương hiệu có số lượng sản phẩm bán ra 
+-- nhiều nhất trong quý 4 năm 2023 theo thứ tự số lượng giảm dần.
+
+SELECT 
+{[Measures].[Total Purchases]} ON COLUMNS,
+{GENERATE(
+    [DIM PRODUCT].[Product Category].[Product Category],
+	ORDER(
+		TOPCOUNT(
+			{[DIM PRODUCT].[Product Category].CurrentMember *
+			[DIM PRODUCT].[Product Brand].[Product Brand]},
+			3,
+			[Measures].[Total Purchases]
+			),
+            [Measures].[Total Purchases],
+            DESC
+        )
+    
+)} ON ROWS
+FROM [Retail DW]
+WHERE [DIM DATE].[Quarter Purchases].&[4]&[2023];
+
+
+-- 6. Cho biết tên khách hàng có tổng số lượng sản phẩm đã mua trên 10 tại bang Florida.
+SELECT {[Measures].[Total Purchases]} ON COLUMNS ,
+{FILTER ({[DIM CUSTOMER].[ID Customer].Children*
+		[DIM CUSTOMER].[Customer Name].Children},
+		[Measures].[Total Purchases] > 10
+		)
+} ON ROWS
+FROM [Retail DW]
+WHERE [DIM LOCATION].[State].&[Florida]&[USA];
+
+
+-- 7 Thống kê doanh thu theo từng quốc gia và drill down để xem chi tiết 
+-- từng thành phố trong mỗi quốc gia
+SELECT [Measures].[Total Amount] ON COLUMNS,
+{DrillDownLevel(
+	DrillDownLevel(
+		DrillDownLevel(
+			[DIM LOCATION].[Hierarchy])
+		)
+	)
+} ON ROWS
+FROM [Retail DW];
+
+
+-- 8 Cho biết thông tin khách hàng và số tiền đã mua của khách hàng 
+-- có số tiền mua hàng cao nhất và thấp nhất.
+SELECT
+    [Measures].[Total Amount] ON COLUMNS,
+    {Union (
+        TOPCOUNT(
+            {[DIM CUSTOMER].[ID Customer].Children 
+			 * [DIM CUSTOMER].[Customer Name].Children 
+             * [DIM CUSTOMER].[Age].Children 
+             * [DIM CUSTOMER].[Gender].Children
+             * [DIM CUSTOMER].[Income].Children 
+             * [DIM CUSTOMER].[Customer Segment].Children},
+            1,
+            [Measures].[Total Amount]
+        ), 
+        BOTTOMCOUNT(
+            NonEmpty(
+                {[DIM CUSTOMER].[ID Customer].Children
+				 * [DIM CUSTOMER].[Customer Name].Children 
+                 * [DIM CUSTOMER].[Age].Children 
+                 * [DIM CUSTOMER].[Gender].Children
+                 * [DIM CUSTOMER].[Income].Children 
+                 * [DIM CUSTOMER].[Customer Segment].Children}
+            ),
+            1,
+            [Measures].[Total Amount]
+        )
+    )} ON ROWS
+FROM [Retail DW];
+
+
+
+-- 9.	Theo từng danh mục sản phẩm cụ thể (Product_Category), 
+-- liệt kê TOP3 tháng có doanh số thấp nhất? 
+SELECT 
+    {[Measures].[Total Purchases]} ON COLUMNS,
+    NON EMPTY 
+    GENERATE(
+        [DIM PRODUCT].[Product Category].[Product Category],
+        BOTTOMCOUNT(
+			NONEMPTY(
+				{[DIM PRODUCT].[Product Category].CurrentMember * 
+				[DIM DATE].[Month Purchases].[Month Purchases]},
+				{[Measures].[Total Purchases]}),
+            3,
+            [Measures].[Total Purchases]
+        )
+    ) ON ROWS
+FROM [Retail DW];
+
+
+-- 10 Cho biết tên sản phẩm, loại sản phẩm và tổng số lượng sản phẩm đó lớn hơn 1500 
+-- được đặt theo từng quốc gia
+SELECT {[Measures].[Total Purchases]} ON COLUMNS,
+{GENERATE(
+	[DIM LOCATION].[Country].Children,
+	[DIM LOCATION].[Country].CurrentMember *
+	FILTER(
+		{[DIM PRODUCT].[Product Name].Children
+		*[DIM PRODUCT].[Product Category].Children},
+		[Measures].[Total Purchases] > 1500
+		)
+	)
+} ON ROWS
+FROM [Retail DW];
+
+
+-- 11. Đưa ra số lượng sản phẩm bán ra, doanh thu của từng loại sản phẩm (Product Type)
+SELECT {[Measures].[Total Purchases], 
+		[Measures].[Total Amount]} ON COLUMNS,
+{[DIM PRODUCT].[Product Type].Children} ON ROWS
+From [Retail DW];
+
+
+-- 12. Với mỗi quốc gia đưa ra 3 thành phố có lợi nhuận cao nhất
+SELECT {[Measures].[Total Amount]} ON COLUMNS,
+{GENERATE(
+	[DIM LOCATION].[Country].Children,
+	TOPCOUNT(
+		{[DIM LOCATION].[Country].CurrentMember
+		* [DIM LOCATION].[City].Children}
+		,3
+		,[Measures].[Total Amount]
+		)
+)} ON ROWS
+From [Retail DW];
+
+-- 13.	Thống kê số lần mỗi phương thức vận chuyển được sử dụng trong các giao dịch
+-- và tỷ lệ phần trăm của từng phương thức so với tổng số giao dịch
+WITH 
+    MEMBER [Measures].[Shipping Count] AS
+        SUM(
+            {[DIM SHIPPING].[Shipping Method].CurrentMember}, 
+            [Measures].[FACT SALES Count]
+        )
+    
+    MEMBER [Measures].[Total Shipping Count] AS
+        SUM(
+            [DIM SHIPPING].[Shipping Method].[Shipping Method], 
+            [Measures].[FACT SALES Count]
+        )
+
+    MEMBER [Measures].[Shipping Percentage] AS 
+        [Measures].[Shipping Count] / [Measures].[Total Shipping Count],
+        FORMAT_STRING = "Percent"
+
+SELECT 
+    {[Measures].[Shipping Count], [Measures].[Total Shipping Count], 
+	[Measures].[Shipping Percentage]} ON COLUMNS,
+    NON EMPTY [DIM SHIPPING].[Shipping Method].[Shipping Method] ON ROWS
+FROM [Retail DW];
+
+
+
+
+-- 9.14	Cho biết đánh giá (Ratings) trung bình của từng sản phẩm thuộc các thương hiệu.
+WITH MEMBER [Measures].[Average_Rating] AS
+    ([Measures].[Ratings]/[Measures].[FACT SALES Count])
+SELECT
+    {[Measures].[Average_Rating]} ON COLUMNS,
+    NONEMPTY(
+        CROSSJOIN(
+            [DIM PRODUCT].[Product Brand].Children,
+            [DIM PRODUCT].[Product Name].Children
+        )
+    ) ON ROWS
+FROM [Retail DW];
+
+
+
+
+
+
+
+
+
