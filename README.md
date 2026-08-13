@@ -69,6 +69,7 @@ The pipeline transforms raw transactional data into a structured analytical mode
 ## Data Warehouse Design
 
 A **Snowflake Schema** was designed around the central `FACT_SALES` table.
+![Snowflake Schema](docs/images/snowflake-schema.png)
 
 ### Fact Table
 
@@ -120,8 +121,9 @@ Major ETL operations included:
 * Validating data loads through SSIS execution results and SQL Server queries, including row-count reconciliation between pipeline output and target tables.
 
 ### ETL Workflow
+![SSIS ETL Pipeline](docs/images/ssis-etl-pipeline.png)
 
-The ETL process produced **298,189 valid transaction records** for downstream analytical processing.
+The `FACT_SALES` pipeline cleans and filters the source data, performs dimension lookups, and loads validated records into the fact table. From **302,010 source records**, **298,189 valid records** were retained for downstream analytical processing.
 
 ---
 
@@ -268,6 +270,8 @@ Power BI was connected to the **SSAS analytical model** to create business repor
 
 Analyzes the product types with the highest sales quantity across cities in Germany during 2023.
 
+![Product Sales by City](docs/images/powerbi-product-sales.png)
+
 This report helps identify which product types perform strongly in different local markets.
 
 ---
@@ -282,6 +286,8 @@ Analyzes:
 * State-level performance
 * Country-level performance
 
+![Geographic Sales Performance](docs/images/powerbi-geographic-performance.png)
+
 The geographic hierarchy allows sales performance to be examined across different levels of location.
 
 ---
@@ -289,6 +295,8 @@ The geographic hierarchy allows sales performance to be examined across differen
 ### 3. Monthly Brand Revenue
 
 Analyzes monthly revenue trends for different product brands during 2023.
+
+![Monthly Brand Revenue](docs/images/powerbi-brand-revenue.png)
 
 The report provides a time-based view of brand performance and makes it easier to compare monthly revenue patterns.
 
