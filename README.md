@@ -14,9 +14,9 @@ The dataset contains retail transactions from **March 2023 to February 2024** ac
 * United Kingdom
 * Australia
 
-The raw dataset contains approximately **302,000 transaction records and 30 attributes**, covering customer information, products, locations, transactions, shipping methods, payment methods, ratings, and order status.
+The raw dataset contains **302,010 transaction records and 30 attributes**, covering customer information, products, locations, transactions, shipping methods, payment methods, ratings, and order status.
 
-After data cleaning and preprocessing, approximately **298,000 records and 21 attributes** were retained for analytical processing.
+After data cleaning and preprocessing, **298,189 records and 21 attributes** were retained for analytical processing.
 
 **Dataset:** [Retail Analysis Large Dataset - Kaggle](https://www.kaggle.com/datasets/sahilprajapati143/retail-analysis-large-dataset/data)
 
@@ -70,22 +70,20 @@ The pipeline transforms raw transactional data into a structured analytical mode
 
 A **Snowflake Schema** was designed around the central `FACT_SALES` table.
 
-![Snowflake Schema](docs/images/snowflake-schema.png)
-
 ### Fact Table
 
 **FACT_SALES**
 
-Stores transaction-level measures and references to analytical dimensions.
+Stores transaction-level facts, descriptive attributes, and foreign keys to analytical dimensions.
 
-Main measures and attributes include:
+Main fields include:
 
-* Amount
-* Total Amount
-* Total Purchases
-* Ratings
-* Feedback
-* Order Status
+- **Amount** — transaction amount
+- **Total Amount** — total transaction value
+- **Total Purchases** — quantity of products purchased
+- **Ratings** — product rating
+- **Feedback** — customer feedback
+- **Order Status** — transaction order status
 
 ### Dimension Tables
 
@@ -121,50 +119,144 @@ Major ETL operations included:
 * Loading the final processed transaction data into the warehouse.
 * Validating data loads through SSIS execution results and SQL Server queries, including row-count reconciliation between pipeline output and target tables.
 
-### Example ETL Workflow
+### ETL Workflow
 
-![SSIS ETL Pipeline](docs/images/ssis-etl-pipeline.png)
-
-The ETL process produces approximately **298,000 valid transaction records** for downstream analytical processing.
+The ETL process produced **298,189 valid transaction records** for downstream analytical processing.
 
 ---
 
 ## OLAP Cube & Multidimensional Analysis
 
-An **SSAS Multidimensional Cube** was built on top of the SQL Server Data Warehouse.
+An **SSAS Multidimensional Cube** was built on top of the SQL Server Data Warehouse to support multidimensional analysis of retail transaction data.
 
-The cube enables analysis across multiple business dimensions such as:
-
-```text
-Sales
- ├── Time
- │    └── Year → Quarter → Month
- │
- ├── Location
- │    └── Country → State → City
- │
- ├── Product
- │    └── Category → Brand → Product
- │
- └── Customer
-```
+The cube uses the `FACT_SALES` table as the central fact table and connects it with customer, product, location, time, shipping, and payment dimensions.
 
 ![SSAS Cube](docs/images/ssas-cube.png)
 
-The project uses **MDX (Multidimensional Expressions)** to perform analytical queries against the cube.
+### Cube Structure
 
-Examples of analytical questions include:
+The SSAS cube consists of six main analytical dimensions:
 
-* How did revenue change by quarter and year?
-* Which products generated the highest revenue?
-* What were the top-selling products for different customer age groups?
-* Which brands performed best within each product category?
-* Which cities generated the highest revenue in each country?
-* How did sales quantity and revenue vary across countries over time?
-* Which shipping methods were used most frequently?
-* How did average product ratings vary across brands?
+- **DIM_CUSTOMER** — customer name, age, gender, income, and customer segment
+- **DIM_LOCATION** — country, state, and city
+- **DIM_DATE** — year, quarter, and month
+- **DIM_PRODUCT** — product information, including category, brand, and product type attributes
+- **DIM_SHIPPING** — shipping method
+- **DIM_PAYMENT** — payment method
 
-A total of **15 multidimensional business queries** were analyzed using the SSAS cube and MDX.
+The `DIM_PRODUCT` dimension incorporates related product attributes from
+`DIM_CATEGORY`, `DIM_BRAND`, and `DIM_TYPE`, reflecting the Snowflake Schema
+of the underlying Data Warehouse.
+
+### Fact Data Used for Analysis
+
+The cube is built from `FACT_SALES`, which contains transactional values and foreign keys to analytical dimensions.
+
+Main numerical fields used for analysis include:
+
+* **Amount** — transaction amount
+* **Total Amount** — total transaction value calculated as `Amount × Total Purchases`
+* **Total Purchases** — quantity of products purchased
+* **Ratings** — product rating value
+
+The fact table also contains `Order_Status`, `Feedback`, and foreign keys linking each transaction to customer, location, product, date, shipping, and payment dimensions.
+
+### Dimension Hierarchies
+
+Hierarchies were created in SSAS to support drill-down and roll-up analysis at different levels of detail.
+
+**Time hierarchy**
+
+```text
+Year
+└── Quarter
+    └── Month
+```
+
+This hierarchy supports analysis from yearly performance down to quarterly and monthly results.
+
+**Location hierarchy**
+
+```text
+Country
+└── State
+    └── City
+```
+
+This hierarchy enables geographic analysis from country-level summaries to state and city details.
+
+### Multidimensional Analysis with MDX
+
+A set of **15 business analysis queries** was implemented using **MDX (Multidimensional Expressions)** against the SSAS cube. The analyses were grouped into several business perspectives, including sales and time, customer, product and brand, geography, and shipping.
+
+#### Sales & Time Analysis
+
+1. Calculate total sales in the **United States by quarter in 2023**.
+
+2. Compare **number of orders, sales quantity, and revenue by country** across different time levels:
+
+```text
+Year → Quarter → Month
+```
+
+This analysis uses the time hierarchy to evaluate sales performance at different levels of granularity.
+
+#### Customer Analysis
+
+3. For each country, identify the **Top 10 products purchased by customers aged 18–25**, ranked by sales quantity.
+
+4. Identify customers in **Florida** whose total purchased quantity exceeds 10 products.
+
+5. Identify the customers with the **highest and lowest total purchase amounts**.
+
+These queries combine customer attributes with sales and geographic dimensions to analyze customer purchasing behavior.
+
+#### Product & Brand Analysis
+
+6. Identify products whose total revenue falls between **2,000,000 and 3,000,000**.
+
+7. For each product category, identify the **Top 3 brands by sales quantity in Q4 2023**.
+
+8. For each product category, identify the **three months with the lowest sales quantity**.
+
+9. Identify products with a **total sales quantity greater than 1,500 by country**, including product and category information.
+
+10. Calculate **revenue and sales quantity by product type**.
+
+11. Calculate the **average product rating by brand and product**.
+
+These analyses evaluate product performance from multiple perspectives, including revenue, sales quantity, category, brand, time, and customer ratings.
+
+#### Geographic Analysis
+
+12. Analyze the **number of orders by state and year**, excluding New Mexico.
+
+13. Analyze revenue using the geographic hierarchy with drill-down from:
+
+```text
+Country → State → City
+```
+
+14. Identify the **Top 3 cities with the highest revenue within each country**.
+
+The geographic hierarchy supports both high-level country comparisons and detailed state- and city-level analysis.
+
+#### Shipping Analysis
+
+15. Calculate the number of transactions for each **shipping method** and its **percentage of total transactions**.
+
+Together, these MDX queries demonstrate multidimensional analysis across **sales, time, customer, product, brand, geography, and shipping dimensions**, using filtering, ranking, aggregation, hierarchy navigation, and cross-dimensional analysis.
+
+
+### Analysis Interfaces
+
+The analytical requirements were explored through multiple interfaces:
+
+- **SSAS Cube Browser** for interactive multidimensional exploration
+- **Excel PivotTables** connected to the SSAS cube
+- **MDX queries** for structured multidimensional analysis
+
+This SSAS implementation covers the OLAP workflow from **Data Warehouse integration and cube modeling to hierarchy-based exploration and multidimensional querying**.
 
 ---
 
@@ -175,8 +267,6 @@ Power BI was connected to the **SSAS analytical model** to create business repor
 ### 1. Product Sales by City
 
 Analyzes the product types with the highest sales quantity across cities in Germany during 2023.
-
-![Product Sales Report](docs/images/powerbi-product-sales.png)
 
 This report helps identify which product types perform strongly in different local markets.
 
@@ -192,8 +282,6 @@ Analyzes:
 * State-level performance
 * Country-level performance
 
-![Geographic Performance Report](docs/images/powerbi-geographic-performance.png)
-
 The geographic hierarchy allows sales performance to be examined across different levels of location.
 
 ---
@@ -202,27 +290,19 @@ The geographic hierarchy allows sales performance to be examined across differen
 
 Analyzes monthly revenue trends for different product brands during 2023.
 
-![Monthly Brand Revenue](docs/images/powerbi-brand-revenue.png)
-
 The report provides a time-based view of brand performance and makes it easier to compare monthly revenue patterns.
 
 ---
 
-## Additional Analysis
+## Additional Reporting with Looker Studio
 
-The analytical model was also explored using:
+Additional reports were developed in Looker Studio using CSV data exported from the SSIS-processed dataset.
 
-**Excel PivotTable**
+The reports analyzed:
 
-The SSAS cube was connected to Excel to perform multidimensional analysis and validate analytical results using interactive PivotTables.
-
-**Looker Studio**
-
-Additional visualizations were created to analyze:
-
-* Monthly revenue by country
-* Geographic revenue distribution
-* Sales performance by product category and time period
+- Monthly revenue by country
+- Geographic revenue distribution by city and country
+- Revenue, sales quantity, and order volume by product category and time period
 
 ---
 
@@ -240,7 +320,7 @@ A Snowflake Schema was designed to organize transactional data into reusable fac
 
 **Multidimensional Analytics**
 
-SSAS cubes, hierarchies, measures, and MDX queries were used to analyze sales across product, customer, geographic, and time dimensions.
+An SSAS cube, dimension hierarchies, measures, and MDX queries were used to analyze sales across product, customer, geographic, and time dimensions.
 
 **Business Intelligence**
 
@@ -259,6 +339,8 @@ Data Cleaning & Transformation
        ▼
 SSIS ETL Pipelines
        │
+       ├────────────► Processed CSV ────────► Looker Studio
+       │
        ▼
 SQL Server Data Warehouse
        │
@@ -268,15 +350,10 @@ Snowflake Schema
        ▼
 SSAS Multidimensional Cube
        │
-       ├──────────► MDX Analysis
-       │
-       ├──────────► Excel Pivot Analysis
-       │
-       ▼
-Power BI / Looker Studio
-       │
-       ▼
-Business Reports & Insights
+       ├────────────► SSAS Cube Browser
+       ├────────────► MDX Analysis
+       ├────────────► Excel Pivot Analysis
+       └────────────► Power BI Reports
 ```
 
 ---
